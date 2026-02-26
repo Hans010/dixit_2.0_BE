@@ -33,8 +33,15 @@ public class GreetingResource {
     @GET
     @Path("/{round}")
     @Produces(MediaType.TEXT_PLAIN)
-    public String storyteller(int round) {
-        return "current storyteller is " + gameService.getStoryteller(round);
+    public String storyteller(@PathParam("round") Integer round) {
+        return "current storyteller is " + gameService.getStoryteller();
+    }
+
+    @GET
+    @Path("/phase")
+    @Produces(MediaType.TEXT_PLAIN)
+    public String showGamePhase() {
+        return gameService.showGamePhase();
     }
 }
 
