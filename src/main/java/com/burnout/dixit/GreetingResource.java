@@ -41,7 +41,7 @@ public class GreetingResource {
     @Path("/phase")
     @Produces(MediaType.TEXT_PLAIN)
     public String showGamePhase() {
-        return gameService.showGamePhase();
+        return "gameService.showGamePhase();";
     }
 }
 

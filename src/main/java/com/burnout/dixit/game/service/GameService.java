@@ -2,6 +2,7 @@ package com.burnout.dixit.game.service;
 
 import com.burnout.dixit.common.GameId;
 import com.burnout.dixit.common.PlayerId;
+import com.burnout.dixit.game.command.ChooseClue;
 import com.burnout.dixit.game.domain.Game;
 import com.burnout.dixit.game.domain.Player;
 import com.burnout.dixit.game.domain.phase.GamePhase;
@@ -33,9 +34,10 @@ public class GameService {
         return game;
     }
 
-    public String showGamePhase() {
-        return game.phase().toString();
+    public void startRound(){
+
     }
+
 
     private List<Player> getPlayers() {
         Player player1 = new Player(new PlayerId(UUID.randomUUID()), "Andreia");

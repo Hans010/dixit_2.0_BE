@@ -31,10 +31,6 @@ public record Game(
         return new Game(id, newPhase, players, currentRound, Instant.now());
     }
 
-    public Game withRoundNumber(int roundNumber) {
-        return new Game(id, phase, players, roundNumber, Instant.now());
-    }
-
     public Player currentStoryteller() {
         System.out.println("current round " + currentRound);
         return !players.isEmpty() ? players.get((currentRound -1) % players.size()) : null;
