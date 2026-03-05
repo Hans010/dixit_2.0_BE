@@ -1,4 +1,6 @@
 package com.burnout.dixit.game.command;
 
-public record ChooseClue(String clue) implements GameCommand {
+import com.burnout.dixit.common.PlayerId;
+
+public record ChooseClue(String clue, PlayerId storytellerId) implements GameCommand {
 }

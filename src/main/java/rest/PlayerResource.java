@@ -22,8 +22,8 @@ public class PlayerResource {
     public String getPlayers(){
         Game game = gameService.getGame();
         String playerList = "Current Players: ";
-        if (game.players().size() > 0) {
-            for (Player player : game.players()) {
+        if (!game.getPlayers().isEmpty()) {
+            for (Player player : game.getPlayers()) {
                 playerList += "\n" + player.name();
             }
         } else playerList = "No Players";

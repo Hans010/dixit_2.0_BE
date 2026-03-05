@@ -19,14 +19,14 @@ public class GameService {
 
     GamePhase lobby = new Lobby(3,5);
 
-    Game game = new Game(new GameId(UUID.randomUUID()), lobby,new ArrayList<Player>(),0, Instant.now());
+    Game game = new Game(new GameId(UUID.randomUUID()), lobby,new ArrayList<Player>());
 
     public String getStoryteller() {
         return game.currentStoryteller() != null ? game.currentStoryteller().name() : "Still no players";
     }
 
     public String addPlayer(String name) {
-        game = game.addPlayer(name);
+        game.addPlayer(name);
         return name + " has been added";
     }
 
