@@ -2,40 +2,32 @@ package com.burnout.dixit.game.domain.phase;
 
 import com.burnout.dixit.common.CardId;
 import com.burnout.dixit.common.PlayerId;
+import com.burnout.dixit.game.domain.Round;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public record Voting(
-        PlayerId storyteller,
-        String clue,
-        Map<PlayerId, CardId> submissions,
-        Map<PlayerId, PlayerId> votes
-        ) implements GamePhase {
+public final class Voting implements GamePhase {
 
-    public Voting(PlayerId storyteller, String clue, Map<PlayerId, CardId> submissions) {
-        this(storyteller, clue, submissions, new HashMap<>());
+    public Voting() {
     }
 
-    public Voting vote(PlayerId voter, PlayerId votedPlayer, int totalPlayers) {
-        if(voter.equals(storyteller)) {
+    public void vote(Round round, PlayerId playerId, CardId votedCardId) {
+        if (round.getStoryteller().equals(playerId)) {
             throw new IllegalStateException("Storyteller cannot vote");
         }
 
-        if(votes.containsKey(voter)) {
+        if (round.getVotes().containsKey(playerId)) {
             throw new IllegalStateException("Player already voted");
         }
 
-        Map<PlayerId, PlayerId> updated = new HashMap<>(votes);
-        updated.put(voter, votedPlayer);
-
-        if (votes.size() == totalPlayers-1) {
-//            return new Scoring(storyteller, submissions, votes);
-            return null;
-        }
-
-        return new Voting(storyteller, clue, submissions, updated);
+        round.submitVote(playerId, votedCardId);
     }
+
+    public boolean allVotesSubmitted(Round round, int totalPlayers) {
+        return round.getVotes().size() == totalPlayers -1;
+    }
+
 
     @Override
     public PhaseType type() {

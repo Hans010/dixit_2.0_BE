@@ -22,7 +22,7 @@ public class GameService {
     Game game = new Game(new GameId(UUID.randomUUID()), lobby,new ArrayList<Player>());
 
     public String getStoryteller() {
-        return game.currentStoryteller() != null ? game.currentStoryteller().name() : "Still no players";
+        return game.getCurrentRound().getStoryteller() != null ? "1" : "Still no players";
     }
 
     public String addPlayer(String name) {

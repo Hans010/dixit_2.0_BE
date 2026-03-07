@@ -65,7 +65,7 @@ public class Game {
             case ChooseClue cmd -> handleChooseClue(cmd);
             case SubmitCard cmd -> handleSubmitCard(cmd);
             case VoteCard cmd -> handleVoteCard(cmd);
-            case NextRound cmd -> handleNextRound();
+            case ScoreRound cmd -> handleScoring();
             default -> throw new IllegalArgumentException("Unknown command: " + command);
         };
     }
@@ -75,32 +75,61 @@ public class Game {
         startNewRound();
     }
 
-    private void handleChooseClue(ChooseClue cmd) {
-        ensurePhase(StorytellerChoice.class);
-
-        if (!cmd.storytellerId().equals(this.getCurrentRound().storyteller())) {
-            throw new IllegalArgumentException("Only storyteller can choose clue: " + cmd.storytellerId());
-        }
-        currentRound.setClue(cmd.clue());
-
-        transitionTo(new CardSubmission())
-
-    }
-
-
     private void startNewRound() {
         if (players.size() < 3) {
             throw new IllegalStateException("Cannot start game with fewer than 3 players");
         }
 
         roundCounter++;
-
-        PlayerId storytellerId = currentStoryteller().id();
-
+        PlayerId storytellerId = setNewStoryteller().id();
         this.currentRound = new Round(roundCounter, storytellerId);
-
-        this.phase = new StorytellerChoice(storytellerId);
+        this.phase = new StorytellerChoice();
         updateTimestamp();
+    }
+
+    private void handleChooseClue(ChooseClue cmd) {
+        ensurePhase(StorytellerChoice.class);
+
+        if (!cmd.getStorytellerId().equals(this.getCurrentRound().getStoryteller())) {
+            throw new IllegalArgumentException("Only storyteller can choose clue: " + cmd.getStorytellerId());
+        }
+        StorytellerChoice phase = (StorytellerChoice) this.phase;
+
+        phase.setClue(this.getCurrentRound(), cmd.getClue());
+        phase.submitStorytellerCard(this.getCurrentRound(), cmd.getStorytellerCardId());
+
+        transitionTo(new CardSubmission());
+    }
+
+    private void handleSubmitCard(SubmitCard cmd) {
+        ensurePhase(CardSubmission.class);
+        CardSubmission phase = (CardSubmission) this.phase;
+
+        phase.submit(currentRound, cmd.getPlayerId(), cmd.getCardId());
+        if (phase.allCardsSubmitted(currentRound, players.size())) {
+            transitionTo(new Voting());
+        }
+    }
+
+    private void handleVoteCard(VoteCard cmd) {
+        ensurePhase(Voting.class);
+
+        Voting phase = (Voting) this.phase;
+        phase.vote(currentRound, cmd.playerId(), cmd.votedCardId());
+
+        if (phase.allVotesSubmitted(currentRound, players.size())) {
+            transitionTo(new Scoring());
+        }
+    }
+
+    private void handleScoring() {
+        ensurePhase(Scoring.class);
+
+        Scoring phase = (Scoring) this.phase;
+        phase.scoreRound(currentRound);
+
+        startNewRound();
+        transitionTo(new StorytellerChoice());
     }
 
     private void ensurePhase(Class<? extends GamePhase> expected) {
@@ -121,7 +150,7 @@ public class Game {
     }
 
 
-    public Player currentStoryteller() {
+    public Player setNewStoryteller() {
         return players.get((roundCounter -1) % players.size());
     }
 }

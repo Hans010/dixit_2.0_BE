@@ -2,42 +2,31 @@ package com.burnout.dixit.game.domain.phase;
 
 import com.burnout.dixit.common.CardId;
 import com.burnout.dixit.common.PlayerId;
+import com.burnout.dixit.game.domain.Round;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public record CardSubmission(
-        PlayerId storyteller,
-        String clue,
-        Map<PlayerId, CardId> submissions
-) implements GamePhase {
+public final class CardSubmission implements GamePhase {
 
-    public CardSubmission(PlayerId storyteller, String clue) {
-        this(storyteller, clue, new HashMap<>());
+    public CardSubmission() {
     }
 
-    public CardSubmission submit(PlayerId playerId, CardId cardId, int totalPlayers) {
-        if (playerId.equals(storyteller)) {
-            throw new IllegalStateException("Storyteller cannot submit");
-        }
+    public void submit(Round round, PlayerId playerId, CardId cardId) {
 
-        if (submissions.containsKey(playerId)) {
+        if (round.getSubmissions().containsKey(playerId)) {
             throw new IllegalStateException("Player already submitted");
         }
 
-        Map<PlayerId, CardId> updated = new HashMap<>(submissions);
-        updated.put(playerId, cardId);
-
-        if (submissions.size() == totalPlayers -1) {
-//            return new Voting(storyteller, clue, Map.copyOf(updated));
-            return null;
-        }
-
-        return new CardSubmission(storyteller, clue, Map.copyOf(updated));
+        round.getSubmissions().put(playerId, cardId);
     }
 
-    @Override
-    public PhaseType type() {
-        return PhaseType.CARD_SUBMISSION;
+    public boolean allCardsSubmitted(Round round, int totalPlayers) {
+        return round.getSubmissions().size() == totalPlayers -1;
     }
+
+@Override
+public PhaseType type() {
+    return PhaseType.CARD_SUBMISSION;
+}
 }
