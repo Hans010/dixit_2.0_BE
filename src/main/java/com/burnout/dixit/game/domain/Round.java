@@ -9,7 +9,7 @@ import java.util.Map;
 public class Round {
 
     private final int roundNumber;
-    private final PlayerId storyteller;
+    private final Player storyteller;
 
     private String clue;
 
@@ -17,13 +17,12 @@ public class Round {
     private final Map<PlayerId, CardId> votes = new HashMap<>();
     private final Map<PlayerId, Integer> roundScore = new HashMap<>();
 
-    public Round (int roundNumber, PlayerId storyteller) {
+    public Round (int roundNumber, Player storyteller) {
         this.roundNumber = roundNumber;
         this.storyteller = storyteller;
     }
 
-    public int getRoundNumber() { return roundNumber; }
-    public PlayerId getStoryteller() { return storyteller; }
+    public Player getStoryteller() { return storyteller; }
     public String clue() { return clue; }
     public Map<PlayerId, CardId> getSubmissions() { return submissions; }
     public Map<PlayerId, CardId> getVotes() { return votes; }

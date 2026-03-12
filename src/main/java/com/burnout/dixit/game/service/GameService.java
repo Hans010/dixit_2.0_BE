@@ -21,10 +21,6 @@ public class GameService {
 
     Game game = new Game(new GameId(UUID.randomUUID()), lobby,new ArrayList<Player>());
 
-    public String getStoryteller() {
-        return game.getCurrentRound().getStoryteller() != null ? "1" : "Still no players";
-    }
-
     public String addPlayer(String name) {
         game.addPlayer(name);
         return name + " has been added";
@@ -34,9 +30,8 @@ public class GameService {
         return game;
     }
 
-    public void startRound(){
 
-    }
+
 
 
     private List<Player> getPlayers() {

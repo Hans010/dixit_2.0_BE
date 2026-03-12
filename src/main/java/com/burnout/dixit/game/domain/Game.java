@@ -81,8 +81,8 @@ public class Game {
         }
 
         roundCounter++;
-        PlayerId storytellerId = setNewStoryteller().id();
-        this.currentRound = new Round(roundCounter, storytellerId);
+        Player storyteller = setNewStoryteller();
+        this.currentRound = new Round(roundCounter, storyteller);
         this.phase = new StorytellerChoice();
         updateTimestamp();
     }

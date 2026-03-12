@@ -20,9 +20,9 @@ public final class Scoring implements GamePhase {
         CardId storytellerCardId = round.getSubmissions().get(round.getStoryteller());
         Map<PlayerId, CardId> votes = round.getVotes();
         if (votes.values().contains(storytellerCardId) && !votes.values().stream().allMatch(cardId -> cardId.equals(storytellerCardId))) {
-            round.getRoundScore().put(round.getStoryteller(), 3);
+            round.getRoundScore().put(round.getStoryteller().id(), 3);
         } else  {
-            round.getRoundScore().put(round.getStoryteller(), 0);
+            round.getRoundScore().put(round.getStoryteller().id(), 0);
         }
     }
 

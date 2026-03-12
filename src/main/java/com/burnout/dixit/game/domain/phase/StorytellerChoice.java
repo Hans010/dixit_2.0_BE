@@ -18,7 +18,7 @@ public final class StorytellerChoice implements GamePhase {
         if (!round.getSubmissions().isEmpty()) {
             round.getSubmissions().clear();
         }
-        round.submitCard(round.getStoryteller(), storytellerCardId);
+        round.submitCard(round.getStoryteller().id(), storytellerCardId);
     }
 
     @Override
