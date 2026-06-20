@@ -59,6 +59,10 @@ public class Game {
         this.players.add(player);
     }
 
+    public boolean removePlayer(String name) {
+        return this.players.removeIf(player -> player.name().equals(name));
+    }
+
     public void handle(GameCommand command) {
         switch (command) {
             case StartGame cmd -> handleStartGame();

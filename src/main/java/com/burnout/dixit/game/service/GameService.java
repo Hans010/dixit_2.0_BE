@@ -30,19 +30,10 @@ public class GameService {
         return game;
     }
 
-
-
-
-
-    private List<Player> getPlayers() {
-        Player player1 = new Player(new PlayerId(UUID.randomUUID()), "Andreia");
-        Player player2 = new Player(new PlayerId(UUID.randomUUID()), "Ricardo");
-        Player player3 = new Player(new PlayerId(UUID.randomUUID()), "Elsa");
-        List<Player> players = new ArrayList<>();
-        players.add(player1);
-        players.add(player2);
-        players.add(player3);
-        return players;
+    public boolean removePlayer(String name) {
+        return game.removePlayer(name);
     }
+
+
 
 }

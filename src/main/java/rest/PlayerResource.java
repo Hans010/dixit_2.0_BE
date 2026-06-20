@@ -4,10 +4,7 @@ import com.burnout.dixit.game.domain.Game;
 import com.burnout.dixit.game.domain.Player;
 import com.burnout.dixit.game.service.GameService;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.*;
 
 import java.util.List;
 
@@ -19,7 +16,7 @@ public class PlayerResource {
 
     @GET
     @Path("/players")
-    public String getPlayers(){
+    public String getPlayers() {
         Game game = gameService.getGame();
         String playerList = "Current Players: ";
         if (!game.getPlayers().isEmpty()) {
@@ -32,8 +29,17 @@ public class PlayerResource {
 
     @POST
     @Path("/add/{name}")
-    public String addPlayer(@PathParam("name") String name){
+    public String addPlayer(@PathParam("name") String name) {
         return gameService.addPlayer(name);
+    }
+
+    @DELETE
+    @Path("/delete/{name}")
+    @Produces("text/plain")
+    public String deletePlayer(@PathParam("name") String name) {
+        return gameService.removePlayer(name) ?
+                "Player " + name + " removed." :
+                "Player " + name + " not found.";
     }
 
 }
