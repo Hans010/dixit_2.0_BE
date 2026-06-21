@@ -13,12 +13,16 @@ public final class Voting implements GamePhase {
     }
 
     public void vote(Round round, PlayerId playerId, CardId votedCardId) {
-        if (round.getStoryteller().equals(playerId)) {
+        if (round.getStoryteller().id().equals(playerId)) {
             throw new IllegalStateException("Storyteller cannot vote");
         }
 
         if (round.getVotes().containsKey(playerId)) {
             throw new IllegalStateException("Player already voted");
+        }
+
+        if(!round.getSubmissions().containsValue(votedCardId)) {
+            throw new IllegalArgumentException("Invalid card");
         }
 
         round.submitVote(playerId, votedCardId);

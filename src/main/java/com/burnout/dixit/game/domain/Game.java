@@ -6,7 +6,10 @@ import com.burnout.dixit.game.command.*;
 import com.burnout.dixit.game.domain.phase.*;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 public class Game {
 
@@ -16,6 +19,7 @@ public class Game {
     private Round currentRound;
     private int roundCounter;
     private Instant lastUpdated;
+    private Map<UUID, Integer> scoreboard = null;
 
     public Game(GameId id, GamePhase initialPhase, List<Player> players) {
         this.id = id;
@@ -83,9 +87,15 @@ public class Game {
         if (players.size() < 3) {
             throw new IllegalStateException("Cannot start game with fewer than 3 players");
         }
+        if (scoreboard == null) {
+            initializeScoreboard();
+        }
 
         roundCounter++;
         Player storyteller = setNewStoryteller();
+        if (roundCounter > 1) {
+            updateScores();
+        }
         this.currentRound = new Round(roundCounter, storyteller);
         this.phase = new StorytellerChoice();
         updateTimestamp();
@@ -94,7 +104,7 @@ public class Game {
     private void handleChooseClue(ChooseClue cmd) {
         ensurePhase(StorytellerChoice.class);
 
-        if (!cmd.getStorytellerId().equals(this.getCurrentRound().getStoryteller())) {
+        if (!cmd.getStorytellerId().equals(this.getCurrentRound().getStoryteller().id())) {
             throw new IllegalArgumentException("Only storyteller can choose clue: " + cmd.getStorytellerId());
         }
         StorytellerChoice phase = (StorytellerChoice) this.phase;
@@ -107,6 +117,7 @@ public class Game {
 
     private void handleSubmitCard(SubmitCard cmd) {
         ensurePhase(CardSubmission.class);
+        ensurePlayerExists(cmd.getPlayerId());
         CardSubmission phase = (CardSubmission) this.phase;
 
         phase.submit(currentRound, cmd.getPlayerId(), cmd.getCardId());
@@ -117,6 +128,7 @@ public class Game {
 
     private void handleVoteCard(VoteCard cmd) {
         ensurePhase(Voting.class);
+        ensurePlayerExists(cmd.playerId());
 
         Voting phase = (Voting) this.phase;
         phase.vote(currentRound, cmd.playerId(), cmd.votedCardId());
@@ -133,7 +145,13 @@ public class Game {
         phase.scoreRound(currentRound);
 
         startNewRound();
-        transitionTo(new StorytellerChoice());
+    }
+
+    private void ensurePlayerExists(PlayerId playerId) {
+        boolean exists = players.stream().anyMatch(p -> p.id().equals(playerId));
+        if (!exists) {
+            throw new IllegalArgumentException("Player not found: " + playerId.uuid());
+        }
     }
 
     private void ensurePhase(Class<? extends GamePhase> expected) {
@@ -156,5 +174,20 @@ public class Game {
 
     public Player setNewStoryteller() {
         return players.get((roundCounter -1) % players.size());
+    }
+
+    private void initializeScoreboard() {
+        scoreboard = new HashMap<>();
+        players.forEach(player -> scoreboard.put(player.id().uuid(), 0));
+    }
+
+    private void updateScores() {
+        currentRound.getRoundScore().forEach((playerId, score) -> scoreboard.put(playerId.uuid(), scoreboard.get(playerId.uuid()) + score));
+    }
+
+    public Map<Player, Integer> getScoreboard() {
+        Map<Player, Integer> scoreboard = new HashMap<>();
+        players.forEach(player -> scoreboard.put(player, this.scoreboard.get(player.id().uuid())));
+        return scoreboard;
     }
 }
