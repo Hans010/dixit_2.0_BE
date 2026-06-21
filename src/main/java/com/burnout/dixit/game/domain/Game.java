@@ -28,6 +28,7 @@ public class Game {
     private Map<UUID, Integer> scoreboard = null;
     private Deck deck;
     private final Map<PlayerId, List<CardId>> hands = new HashMap<>();
+    private CardId lastRevealedStorytellerCardId;
 
     public Game(GameId id, GamePhase initialPhase, List<Player> players) {
         this.id = id;
@@ -166,12 +167,39 @@ public class Game {
         phase.scoreRound(currentRound);
         updateScores();
 
+        // Capture before startNewRound() overwrites currentRound - this is
+        // how callers (GameService's broadcast) can still show "what was
+        // the storyteller's card" for the round that was just scored, even
+        // though by the time handle() returns, currentRound already points
+        // at the new round (or there is no current round, if the game just
+        // ended).
+        lastRevealedStorytellerCardId = currentRound.getSubmissions().get(currentRound.getStoryteller().id());
+
         if (hasWinner()) {
             transitionTo(new GameOver());
         } else {
             replenishHands();
             startNewRound();
         }
+    }
+
+    /**
+     * The storyteller's card from the most recently scored round.
+     * Deliberately NOT cleared when a new round starts, because callers
+     * need to read it immediately after handle(new ScoreRound()) returns,
+     * by which point currentRound has already moved on to the next round
+     * (or there is no current round, if the game just ended).
+     *
+     * Because this field persists across later rounds, callers must scope
+     * its use carefully: it should only be surfaced once, in the single
+     * broadcast that immediately follows the ScoreRound command that set
+     * it - never in any later broadcast - or it would leak the previous
+     * round's answer before the next round's voting has even closed. See
+     * GameService.scoreRound()/persist(boolean) for how that scoping is
+     * done in practice.
+     */
+    public CardId getLastRevealedStorytellerCardId() {
+        return lastRevealedStorytellerCardId;
     }
 
     /**

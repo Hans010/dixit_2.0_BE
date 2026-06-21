@@ -39,6 +39,9 @@ public class GameService {
     @Inject
     ObjectMapper objectMapper;
 
+    @Inject
+    CardImageResolver cardImageResolver;
+
     private Game game;
 
     /**
@@ -70,7 +73,7 @@ public class GameService {
 
     public String addPlayer(String name) {
         game.addPlayer(name);
-        persist();
+        persist(false);
         logAction("PLAYER_ADDED", Map.of("playerName", name));
         return name + " has been added";
     }
@@ -82,7 +85,7 @@ public class GameService {
     public boolean removePlayer(String name) {
         boolean removed = game.removePlayer(name);
         if (removed) {
-            persist();
+            persist(false);
         }
         logAction(removed ? "PLAYER_REMOVED" : "PLAYER_REMOVE_FAILED", Map.of("playerName", name));
         return removed;
@@ -91,7 +94,7 @@ public class GameService {
     public void startGame() {
         try {
             game.handle(new StartGame());
-            persist();
+            persist(false);
             logAction("GAME_STARTED", Map.of());
         } catch (RuntimeException e) {
             logActionFailed("GAME_START_FAILED", e);
@@ -102,7 +105,7 @@ public class GameService {
     public void chooseClue(PlayerId storytellerId, String clue, CardId cardId) {
         try {
             game.handle(new ChooseClue(clue, storytellerId, cardId));
-            persist();
+            persist(false);
             logAction("CLUE_CHOSEN", Map.of(
                     "playerId", storytellerId.uuid().toString(),
                     "cardId", cardId.uuid().toString()
@@ -116,7 +119,7 @@ public class GameService {
     public void submitCard(PlayerId playerId, CardId cardId) {
         try {
             game.handle(new SubmitCard(playerId, cardId));
-            persist();
+            persist(false);
             logAction("CARD_SUBMITTED", Map.of(
                     "playerId", playerId.uuid().toString(),
                     "cardId", cardId.uuid().toString()
@@ -130,7 +133,7 @@ public class GameService {
     public void voteCard(PlayerId playerId, CardId votedCardId) {
         try {
             game.handle(new VoteCard(playerId, votedCardId));
-            persist();
+            persist(false);
             logAction("VOTE_CAST", Map.of(
                     "playerId", playerId.uuid().toString(),
                     "votedCardId", votedCardId.uuid().toString()
@@ -144,7 +147,11 @@ public class GameService {
     public void scoreRound() {
         try {
             game.handle(new ScoreRound());
-            persist();
+            // true: this broadcast (and only this one) should reveal the
+            // storyteller's card for the round that was just scored. See
+            // Game.handleScoring()/getLastRevealedStorytellerCardId() for
+            // why this can't just be derived from current phase/round.
+            persist(true);
             logAction("ROUND_SCORED", Map.of());
         } catch (RuntimeException e) {
             logActionFailed("SCORE_ROUND_FAILED", e);
@@ -173,9 +180,9 @@ public class GameService {
         return game.getHandCards(playerId);
     }
 
-    private void persist() {
+    private void persist(boolean revealStorytellerCard) {
         gameRepository.save(game);
-        broadcastState();
+        broadcastState(revealStorytellerCard);
     }
 
     /**
@@ -185,9 +192,9 @@ public class GameService {
      * the command itself already succeeded and was already persisted by
      * the time this runs.
      */
-    private void broadcastState() {
+    private void broadcastState(boolean revealStorytellerCard) {
         try {
-            GameStateBroadcast payload = buildBroadcastPayload();
+            GameStateBroadcast payload = buildBroadcastPayload(revealStorytellerCard);
             String json = objectMapper.writeValueAsString(payload);
             gameSocket.broadcast(json);
         } catch (Exception e) {
@@ -195,18 +202,58 @@ public class GameService {
         }
     }
 
-    private GameStateBroadcast buildBroadcastPayload() {
+    private GameStateBroadcast buildBroadcastPayload(boolean revealStorytellerCard) {
         Player storyteller = getStoryteller();
+        Round currentRound = game.getCurrentRound();
         Map<String, Integer> scoreboard = new LinkedHashMap<>();
         getScoreboard().forEach((player, score) -> scoreboard.put(player.name(), score));
+
+        int totalPlayers = game.getPlayers().size();
+
+        GameStateBroadcast.SubmissionProgress submissions = currentRound != null
+                ? new GameStateBroadcast.SubmissionProgress(currentRound.getSubmissions().size(), totalPlayers)
+                : null;
+
+        // Storyteller doesn't vote, so expected votes is total players minus one.
+        GameStateBroadcast.VoteProgress votes = currentRound != null
+                ? new GameStateBroadcast.VoteProgress(currentRound.getVotes().size(), Math.max(totalPlayers - 1, 0))
+                : null;
+
+        GameStateBroadcast.CardView storytellerCard = revealStorytellerCard
+                ? resolveStorytellerCard()
+                : null;
 
         return new GameStateBroadcast(
                 getCurrentPhase(),
                 getRoundNumber(),
                 storyteller != null ? storyteller.id().uuid() : null,
                 storyteller != null ? storyteller.name() : null,
+                currentRound != null ? currentRound.clue() : null,
+                submissions,
+                votes,
+                storytellerCard,
                 scoreboard
         );
+    }
+
+    /**
+     * Resolves the storyteller's card for the round that was just scored.
+     * Only ever called with revealStorytellerCard=true, i.e. exactly once,
+     * immediately after a ScoreRound command - never for any other
+     * broadcast. This is what keeps the reveal scoped to that single
+     * message instead of leaking into broadcasts for later rounds: the
+     * underlying Game field (getLastRevealedStorytellerCardId()) isn't
+     * cleared after a round ends, so without this scoping, every
+     * subsequent broadcast would also show it - revealing the previous
+     * round's answer before the current round's voting has even closed.
+     */
+    private GameStateBroadcast.CardView resolveStorytellerCard() {
+        CardId storytellerCardId = game.getLastRevealedStorytellerCardId();
+        if (storytellerCardId == null) {
+            return null;
+        }
+        Card card = game.getDeck().lookup(storytellerCardId);
+        return new GameStateBroadcast.CardView(card.id().uuid(), cardImageResolver.resolve(card));
     }
 
     /**
