@@ -65,4 +65,28 @@ public class Round {
         return votes.size() == totalPlayers -1;
     }
 
+    public int getRoundNumber() {
+        return roundNumber;
+    }
+
+    /**
+     * Rehydrates a Round's mutable state from a persisted snapshot (see
+     * GameMapper). Bypasses the validation in setClue()/submitCard()/
+     * submitVote() (e.g. "clue already chosen") since this is restoring
+     * existing state, not making a new move.
+     */
+    public static Round restore(int roundNumber, Player storyteller, String clue,
+                                 Map<PlayerId, CardId> submissions,
+                                 Map<PlayerId, CardId> votes,
+                                 Map<PlayerId, Integer> roundScore,
+                                 boolean noVotesInStorytellerCard) {
+        Round round = new Round(roundNumber, storyteller);
+        round.clue = clue;
+        round.submissions.putAll(submissions);
+        round.votes.putAll(votes);
+        round.roundScore.putAll(roundScore);
+        round.noVotesInStorytellerCard = noVotesInStorytellerCard;
+        return round;
+    }
+
 }

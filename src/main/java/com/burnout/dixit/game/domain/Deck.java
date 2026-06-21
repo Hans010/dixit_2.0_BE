@@ -67,4 +67,29 @@ public class Deck {
     public boolean isEmpty() {
         return drawPile.isEmpty();
     }
+
+    /**
+     * Reconstructs a Deck from a previously captured draw pile and card
+     * universe (see toSnapshot()). The draw pile's order is preserved
+     * exactly as given - no reshuffling - so a restored game resumes with
+     * the same draw order it would have had if the process had never
+     * restarted.
+     */
+    public static Deck restore(List<Card> drawPileCards, List<Card> allCardsList) {
+        Deck deck = new Deck(drawPileCards);
+        // allCards must reflect the full universe (including already-drawn
+        // cards still referenced by hands/submissions), not just what's left
+        // in the draw pile, so lookup() keeps working for those too.
+        deck.allCards.clear();
+        allCardsList.forEach(card -> deck.allCards.put(card.id(), card));
+        return deck;
+    }
+
+    public List<Card> drawPileSnapshot() {
+        return new ArrayList<>(drawPile);
+    }
+
+    public List<Card> allCardsSnapshot() {
+        return new ArrayList<>(allCards.values());
+    }
 }

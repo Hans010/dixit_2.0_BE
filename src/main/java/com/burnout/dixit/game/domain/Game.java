@@ -252,4 +252,39 @@ public class Game {
         players.forEach(player -> scoreboard.put(player, this.scoreboard.get(player.id().uuid())));
         return scoreboard;
     }
+
+    /**
+     * Raw scoreboard keyed by player UUID, as used internally and by
+     * GameMapper for persistence. Returns an empty map if the game hasn't
+     * started yet (scoreboard is only initialized on first round start).
+     */
+    public Map<UUID, Integer> getRawScoreboard() {
+        return scoreboard == null ? Map.of() : scoreboard;
+    }
+
+    public Deck getDeck() {
+        return deck;
+    }
+
+    public Map<PlayerId, List<CardId>> getHands() {
+        return hands;
+    }
+
+    /**
+     * Restores internal state from a previously persisted snapshot (see
+     * GameMapper). Used only when rehydrating a Game from Redis - normal
+     * gameplay never calls this.
+     */
+    public void restoreState(GamePhase phase, int roundCounter, Round currentRound,
+                              Map<UUID, Integer> scoreboard, Deck deck,
+                              Map<PlayerId, List<CardId>> hands, Instant lastUpdated) {
+        this.phase = phase;
+        this.roundCounter = roundCounter;
+        this.currentRound = currentRound;
+        this.scoreboard = scoreboard;
+        this.deck = deck;
+        this.hands.clear();
+        this.hands.putAll(hands);
+        this.lastUpdated = lastUpdated;
+    }
 }

@@ -10,7 +10,9 @@ import com.burnout.dixit.game.domain.Player;
 import com.burnout.dixit.game.domain.Round;
 import com.burnout.dixit.game.domain.phase.GamePhase;
 import com.burnout.dixit.game.domain.phase.Lobby;
+import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 import org.jboss.logging.MDC;
 
@@ -24,12 +26,41 @@ public class GameService {
 
     private static final Logger LOG = Logger.getLogger(GameService.class);
 
-    GamePhase lobby = new Lobby(3,5);
+    @Inject
+    GameRepository gameRepository;
 
-    Game game = new Game(new GameId(UUID.randomUUID()), lobby,new ArrayList<Player>());
+    private Game game;
+
+    /**
+     * On startup, restore the most recently known game from Redis if one
+     * exists; otherwise start fresh. This means a backend restart doesn't
+     * lose an in-progress game's state.
+     *
+     * Note: this still models a single active game, same as before - it
+     * just survives restarts now. Supporting multiple concurrent games is
+     * a separate change (would mean keying everything by gameId instead of
+     * holding one Game field), not something this persistence layer alone
+     * adds.
+     */
+    @PostConstruct
+    void init() {
+        game = gameRepository.findById(LAST_GAME_ID)
+                .orElseGet(GameService::newGame);
+    }
+
+    // A fixed, well-known ID so the single in-memory game has a stable
+    // Redis key to be restored from. Once multi-game support exists, this
+    // goes away in favor of real per-game IDs end to end.
+    private static final GameId LAST_GAME_ID = new GameId(UUID.fromString("00000000-0000-0000-0000-000000000001"));
+
+    private static Game newGame() {
+        GamePhase lobby = new Lobby(3, 5);
+        return new Game(LAST_GAME_ID, lobby, new ArrayList<Player>());
+    }
 
     public String addPlayer(String name) {
         game.addPlayer(name);
+        persist();
         logAction("PLAYER_ADDED", Map.of("playerName", name));
         return name + " has been added";
     }
@@ -40,6 +71,9 @@ public class GameService {
 
     public boolean removePlayer(String name) {
         boolean removed = game.removePlayer(name);
+        if (removed) {
+            persist();
+        }
         logAction(removed ? "PLAYER_REMOVED" : "PLAYER_REMOVE_FAILED", Map.of("playerName", name));
         return removed;
     }
@@ -47,6 +81,7 @@ public class GameService {
     public void startGame() {
         try {
             game.handle(new StartGame());
+            persist();
             logAction("GAME_STARTED", Map.of());
         } catch (RuntimeException e) {
             logActionFailed("GAME_START_FAILED", e);
@@ -57,6 +92,7 @@ public class GameService {
     public void chooseClue(PlayerId storytellerId, String clue, CardId cardId) {
         try {
             game.handle(new ChooseClue(clue, storytellerId, cardId));
+            persist();
             logAction("CLUE_CHOSEN", Map.of(
                     "playerId", storytellerId.uuid().toString(),
                     "cardId", cardId.uuid().toString()
@@ -70,6 +106,7 @@ public class GameService {
     public void submitCard(PlayerId playerId, CardId cardId) {
         try {
             game.handle(new SubmitCard(playerId, cardId));
+            persist();
             logAction("CARD_SUBMITTED", Map.of(
                     "playerId", playerId.uuid().toString(),
                     "cardId", cardId.uuid().toString()
@@ -83,6 +120,7 @@ public class GameService {
     public void voteCard(PlayerId playerId, CardId votedCardId) {
         try {
             game.handle(new VoteCard(playerId, votedCardId));
+            persist();
             logAction("VOTE_CAST", Map.of(
                     "playerId", playerId.uuid().toString(),
                     "votedCardId", votedCardId.uuid().toString()
@@ -96,6 +134,7 @@ public class GameService {
     public void scoreRound() {
         try {
             game.handle(new ScoreRound());
+            persist();
             logAction("ROUND_SCORED", Map.of());
         } catch (RuntimeException e) {
             logActionFailed("SCORE_ROUND_FAILED", e);
@@ -122,6 +161,10 @@ public class GameService {
 
     public List<Card> getHand(PlayerId playerId) {
         return game.getHandCards(playerId);
+    }
+
+    private void persist() {
+        gameRepository.save(game);
     }
 
     /**
