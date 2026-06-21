@@ -203,6 +203,17 @@ public class Game {
     }
 
     /**
+     * Creates a fresh game, completely discarding all current state
+     * (players, scores, hands, round progress) - everyone needs to be
+     * re-added from scratch afterward. Used by GameService's reset
+     * endpoint to let a game be abandoned and restarted without needing
+     * to manually clear Redis or restart the backend.
+     */
+    public static Game fresh(GameId id) {
+        return new Game(id, new Lobby(3, 5), new ArrayList<>());
+    }
+
+    /**
      * Every player played exactly one card this round (storyteller's clue
      * card plus each other player's submission), so every hand is down to
      * HAND_SIZE - 1. Draw one replacement per player to bring hands back to

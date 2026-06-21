@@ -8,8 +8,6 @@ import com.burnout.dixit.game.domain.Card;
 import com.burnout.dixit.game.domain.Game;
 import com.burnout.dixit.game.domain.Player;
 import com.burnout.dixit.game.domain.Round;
-import com.burnout.dixit.game.domain.phase.GamePhase;
-import com.burnout.dixit.game.domain.phase.Lobby;
 import com.burnout.dixit.game.ws.GameSocket;
 import com.burnout.dixit.game.ws.GameStateBroadcast;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,7 +17,6 @@ import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 import org.jboss.logging.MDC;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,18 +55,13 @@ public class GameService {
     @PostConstruct
     void init() {
         game = gameRepository.findById(LAST_GAME_ID)
-                .orElseGet(GameService::newGame);
+                .orElseGet(() -> Game.fresh(LAST_GAME_ID));
     }
 
     // A fixed, well-known ID so the single in-memory game has a stable
     // Redis key to be restored from. Once multi-game support exists, this
     // goes away in favor of real per-game IDs end to end.
     private static final GameId LAST_GAME_ID = new GameId(UUID.fromString("00000000-0000-0000-0000-000000000001"));
-
-    private static Game newGame() {
-        GamePhase lobby = new Lobby(3, 5);
-        return new Game(LAST_GAME_ID, lobby, new ArrayList<Player>());
-    }
 
     public String addPlayer(String name) {
         game.addPlayer(name);
@@ -157,6 +149,19 @@ public class GameService {
             logActionFailed("SCORE_ROUND_FAILED", e);
             throw e;
         }
+    }
+
+    /**
+     * Discards the current game entirely - players, scores, hands, round
+     * progress, everything - and starts a fresh empty lobby under the same
+     * well-known game ID. Lets a game be abandoned and restarted (e.g.
+     * after testing, or if a real game needs to be called off) without
+     * manually clearing Redis or restarting the backend.
+     */
+    public void resetGame() {
+        game = Game.fresh(LAST_GAME_ID);
+        persist(false);
+        logAction("GAME_RESET", Map.of());
     }
 
     public String getCurrentPhase() {

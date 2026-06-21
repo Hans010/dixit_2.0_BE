@@ -106,6 +106,18 @@ public class GameResource {
         }
     }
 
+    /**
+     * Discards the current game entirely - players, scores, hands, round
+     * progress - and starts a fresh empty lobby. Always succeeds; there's
+     * no invalid state to reset from.
+     */
+    @POST
+    @Path("/reset")
+    public Response resetGame() {
+        gameService.resetGame();
+        return Response.ok("Game reset!").build();
+    }
+
     // --- Request bodies ---
 
     public record ChooseClueRequest(UUID storytellerId, String clue, UUID cardId) {}
