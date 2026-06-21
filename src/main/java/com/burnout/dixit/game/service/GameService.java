@@ -4,6 +4,7 @@ import com.burnout.dixit.common.CardId;
 import com.burnout.dixit.common.GameId;
 import com.burnout.dixit.common.PlayerId;
 import com.burnout.dixit.game.command.*;
+import com.burnout.dixit.game.domain.Card;
 import com.burnout.dixit.game.domain.Game;
 import com.burnout.dixit.game.domain.Player;
 import com.burnout.dixit.game.domain.Round;
@@ -14,6 +15,7 @@ import org.jboss.logging.Logger;
 import org.jboss.logging.MDC;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -116,6 +118,10 @@ public class GameService {
 
     public Map<Player, Integer> getScoreboard() {
        return game.getScoreboard();
+    }
+
+    public List<Card> getHand(PlayerId playerId) {
+        return game.getHandCards(playerId);
     }
 
     /**

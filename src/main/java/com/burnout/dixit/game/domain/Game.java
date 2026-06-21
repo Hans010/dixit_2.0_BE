@@ -1,11 +1,13 @@
 package com.burnout.dixit.game.domain;
 
+import com.burnout.dixit.common.CardId;
 import com.burnout.dixit.common.GameId;
 import com.burnout.dixit.common.PlayerId;
 import com.burnout.dixit.game.command.*;
 import com.burnout.dixit.game.domain.phase.*;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,6 +16,8 @@ import java.util.UUID;
 public class Game {
 
     private static final int WINNING_SCORE = 30;
+    private static final int HAND_SIZE = 6;
+    private static final int DECK_SIZE = 198;
 
     private final GameId id;
     private GamePhase phase;
@@ -22,6 +26,8 @@ public class Game {
     private int roundCounter;
     private Instant lastUpdated;
     private Map<UUID, Integer> scoreboard = null;
+    private Deck deck;
+    private final Map<PlayerId, List<CardId>> hands = new HashMap<>();
 
     public Game(GameId id, GamePhase initialPhase, List<Player> players) {
         this.id = id;
@@ -82,7 +88,19 @@ public class Game {
 
     private void handleStartGame() {
         ensurePhase(Lobby.class);
+        deck = Deck.generate(DECK_SIZE);
+        dealHands();
         startNewRound();
+    }
+
+    private void dealHands() {
+        for (Player player : players) {
+            List<CardId> hand = new ArrayList<>(HAND_SIZE);
+            for (int i = 0; i < HAND_SIZE; i++) {
+                hand.add(deck.drawCard().id());
+            }
+            hands.put(player.id(), hand);
+        }
     }
 
     private void startNewRound() {
@@ -106,6 +124,8 @@ public class Game {
         if (!cmd.getStorytellerId().equals(this.getCurrentRound().getStoryteller().id())) {
             throw new IllegalArgumentException("Only storyteller can choose clue: " + cmd.getStorytellerId());
         }
+        playCardFromHand(cmd.getStorytellerId(), cmd.getStorytellerCardId());
+
         StorytellerChoice phase = (StorytellerChoice) this.phase;
 
         phase.setClue(this.getCurrentRound(), cmd.getClue());
@@ -117,6 +137,8 @@ public class Game {
     private void handleSubmitCard(SubmitCard cmd) {
         ensurePhase(CardSubmission.class);
         ensurePlayerExists(cmd.getPlayerId());
+        playCardFromHand(cmd.getPlayerId(), cmd.getCardId());
+
         CardSubmission phase = (CardSubmission) this.phase;
 
         phase.submit(currentRound, cmd.getPlayerId(), cmd.getCardId());
@@ -147,12 +169,44 @@ public class Game {
         if (hasWinner()) {
             transitionTo(new GameOver());
         } else {
+            replenishHands();
             startNewRound();
+        }
+    }
+
+    /**
+     * Every player played exactly one card this round (storyteller's clue
+     * card plus each other player's submission), so every hand is down to
+     * HAND_SIZE - 1. Draw one replacement per player to bring hands back to
+     * full before the next round begins.
+     */
+    private void replenishHands() {
+        for (Player player : players) {
+            hands.get(player.id()).add(deck.drawCard().id());
         }
     }
 
     private boolean hasWinner() {
         return scoreboard.values().stream().anyMatch(score -> score >= WINNING_SCORE);
+    }
+
+    /**
+     * Removes a card from a player's hand when it's played (as a clue card
+     * or a submission), validating that the player actually holds it.
+     */
+    private void playCardFromHand(PlayerId playerId, CardId cardId) {
+        List<CardId> hand = hands.get(playerId);
+        if (hand == null || !hand.remove(cardId)) {
+            throw new IllegalArgumentException("Player does not hold card: " + cardId.uuid());
+        }
+    }
+
+    public List<CardId> getHand(PlayerId playerId) {
+        return hands.getOrDefault(playerId, List.of());
+    }
+
+    public List<Card> getHandCards(PlayerId playerId) {
+        return getHand(playerId).stream().map(deck::lookup).toList();
     }
 
     private void ensurePlayerExists(PlayerId playerId) {

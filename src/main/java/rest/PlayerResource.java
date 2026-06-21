@@ -1,6 +1,8 @@
 package rest;
 
-import com.burnout.dixit.game.domain.Player;
+import com.burnout.dixit.common.PlayerId;
+import com.burnout.dixit.game.domain.Card;
+import com.burnout.dixit.game.service.CardImageResolver;
 import com.burnout.dixit.game.service.GameService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -17,6 +19,9 @@ public class PlayerResource {
 
     @Inject
     GameService gameService;
+
+    @Inject
+    CardImageResolver cardImageResolver;
 
     @GET
     @Path("/players")
@@ -44,8 +49,18 @@ public class PlayerResource {
         }
     }
 
-    // --- Response body ---
+    @GET
+    @Path("/{playerId}/hand")
+    public List<CardResponse> getHand(@PathParam("playerId") UUID playerId) {
+        List<Card> hand = gameService.getHand(new PlayerId(playerId));
+        return hand.stream()
+                .map(card -> new CardResponse(card.id().uuid(), cardImageResolver.resolve(card)))
+                .toList();
+    }
+
+    // --- Response bodies ---
 
     public record PlayerResponse(UUID id, String name) {}
+    public record CardResponse(UUID cardId, String imageUrl) {}
 
 }
