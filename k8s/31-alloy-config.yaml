@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-config
+  namespace: dixit
+data:
+  config.alloy: |
+    discovery.kubernetes "pods" {
+      role = "pod"
+    }
+
+    discovery.relabel "pod_logs" {
+      targets = discovery.kubernetes.pods.targets
+
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        target_label  = "namespace"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_name"]
+        target_label  = "pod"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_container_name"]
+        target_label  = "container"
+      }
+      rule {
+        source_labels = ["__meta_kubernetes_pod_label_app"]
+        target_label  = "app"
+      }
+    }
+
+    loki.source.kubernetes "pod_logs" {
+      targets    = discovery.relabel.pod_logs.output
+      forward_to = [loki.process.add_json_fields.receiver]
+    }
+
+    // Promote select fields from our app's structured JSON logs into Loki
+    // labels/structured metadata so they're directly filterable/groupable in
+    // Grafana, without re-parsing on every query.
+    //
+    // Quarkus's built-in JSON console formatter (quarkus.log.console.json=true)
+    // nests MDC values under an "mdc" object, e.g.:
+    //   {"level":"INFO", "message":"...", "mdc": {"action":"...", "gameId":"...", "phase":"...", "roundNumber":"..."}}
+    loki.process "add_json_fields" {
+      forward_to = [loki.write.local.receiver]
+
+      stage.json {
+        expressions = {
+          level = "level",
+          mdc   = "mdc",
+        }
+      }
+
+      stage.json {
+        source = "mdc"
+        expressions = {
+          action      = "action",
+          gameId      = "gameId",
+          phase       = "phase",
+          roundNumber = "roundNumber",
+        }
+      }
+
+      stage.structured_metadata {
+        values = {
+          action      = "",
+          gameId      = "",
+          phase       = "",
+          roundNumber = "",
+        }
+      }
+
+      stage.labels {
+        values = {
+          level = "",
+        }
+      }
+    }
+
+    loki.write "local" {
+      endpoint {
+        url = "http://loki.dixit.svc.cluster.local:3100/loki/api/v1/push"
+      }
+    }

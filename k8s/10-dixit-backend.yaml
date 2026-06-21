@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dixit-backend
+  namespace: dixit
+  labels:
+    app: dixit-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dixit-backend
+  template:
+    metadata:
+      labels:
+        app: dixit-backend
+    spec:
+      containers:
+        - name: dixit-backend
+          # Built locally with: docker build -t dixit-backend:local .
+          # For kind:     kind load docker-image dixit-backend:local
+          # For minikube: minikube image load dixit-backend:local
+          image: dixit-backend:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dixit-backend
+  namespace: dixit
+  labels:
+    app: dixit-backend
+spec:
+  selector:
+    app: dixit-backend
+  ports:
+    - port: 8080
+      targetPort: http
+      name: http
+  type: ClusterIP
