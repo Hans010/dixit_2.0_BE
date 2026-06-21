@@ -249,7 +249,7 @@ public class Game {
 
     public Map<Player, Integer> getScoreboard() {
         Map<Player, Integer> scoreboard = new HashMap<>();
-        players.forEach(player -> scoreboard.put(player, this.scoreboard.get(player.id().uuid())));
+        players.forEach(player -> scoreboard.put(player, this.scoreboard == null ? 0 : this.scoreboard.getOrDefault(player.id().uuid(), 0)));
         return scoreboard;
     }
 

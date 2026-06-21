@@ -10,6 +10,9 @@ import com.burnout.dixit.game.domain.Player;
 import com.burnout.dixit.game.domain.Round;
 import com.burnout.dixit.game.domain.phase.GamePhase;
 import com.burnout.dixit.game.domain.phase.Lobby;
+import com.burnout.dixit.game.ws.GameSocket;
+import com.burnout.dixit.game.ws.GameStateBroadcast;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -17,6 +20,7 @@ import org.jboss.logging.Logger;
 import org.jboss.logging.MDC;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,6 +32,12 @@ public class GameService {
 
     @Inject
     GameRepository gameRepository;
+
+    @Inject
+    GameSocket gameSocket;
+
+    @Inject
+    ObjectMapper objectMapper;
 
     private Game game;
 
@@ -165,6 +175,38 @@ public class GameService {
 
     private void persist() {
         gameRepository.save(game);
+        broadcastState();
+    }
+
+    /**
+     * Builds the current state payload and pushes it to every connected
+     * WebSocket client. Serialization failures are logged but swallowed -
+     * a broadcast problem shouldn't fail the underlying game command, since
+     * the command itself already succeeded and was already persisted by
+     * the time this runs.
+     */
+    private void broadcastState() {
+        try {
+            GameStateBroadcast payload = buildBroadcastPayload();
+            String json = objectMapper.writeValueAsString(payload);
+            gameSocket.broadcast(json);
+        } catch (Exception e) {
+            LOG.warnf("Failed to broadcast game state: %s", e.getMessage());
+        }
+    }
+
+    private GameStateBroadcast buildBroadcastPayload() {
+        Player storyteller = getStoryteller();
+        Map<String, Integer> scoreboard = new LinkedHashMap<>();
+        getScoreboard().forEach((player, score) -> scoreboard.put(player.name(), score));
+
+        return new GameStateBroadcast(
+                getCurrentPhase(),
+                getRoundNumber(),
+                storyteller != null ? storyteller.id().uuid() : null,
+                storyteller != null ? storyteller.name() : null,
+                scoreboard
+        );
     }
 
     /**
