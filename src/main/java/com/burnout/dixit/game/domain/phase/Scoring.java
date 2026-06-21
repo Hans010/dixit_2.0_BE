@@ -13,7 +13,6 @@ public final class Scoring implements GamePhase {
     public void scoreRound(Round round) {
         setStorytellerScore(round);
         scoreVotes(round);
-        System.out.println("scores");
     }
 
     private void setStorytellerScore(Round round) {
