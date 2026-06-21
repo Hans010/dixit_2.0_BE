@@ -13,6 +13,8 @@ import java.util.UUID;
 
 public class Game {
 
+    private static final int WINNING_SCORE = 30;
+
     private final GameId id;
     private GamePhase phase;
     private final List<Player> players;
@@ -93,9 +95,6 @@ public class Game {
 
         roundCounter++;
         Player storyteller = setNewStoryteller();
-        if (roundCounter > 1) {
-            updateScores();
-        }
         this.currentRound = new Round(roundCounter, storyteller);
         this.phase = new StorytellerChoice();
         updateTimestamp();
@@ -143,8 +142,17 @@ public class Game {
 
         Scoring phase = (Scoring) this.phase;
         phase.scoreRound(currentRound);
+        updateScores();
 
-        startNewRound();
+        if (hasWinner()) {
+            transitionTo(new GameOver());
+        } else {
+            startNewRound();
+        }
+    }
+
+    private boolean hasWinner() {
+        return scoreboard.values().stream().anyMatch(score -> score >= WINNING_SCORE);
     }
 
     private void ensurePlayerExists(PlayerId playerId) {
